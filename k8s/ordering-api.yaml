@@ -1,0 +1,73 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ordering-api-config
+  namespace: eshop
+data:
+  ASPNETCORE_ENVIRONMENT: "Development"
+  ASPNETCORE_URLS: "http://+:8080"
+  ConnectionStrings__orderingdb: "Host=postgres;Database=ordering;Username=eshop;Password=eshop123"
+  ConnectionStrings__EventBus: "amqp://eshop:eshop123@rabbitmq:5672"
+  # FIXED: Use external HTTPS URL for token validation
+  Identity__Url: "https://identity.tkjpedia.com"
+  Identity__Audience: "orders"
+  # Allow HTTP metadata for internal communication but validate against HTTPS issuer
+  Identity__RequireHttpsMetadata: "false"
+  # RabbitMQ configuration
+  RabbitMQ__HostName: "rabbitmq"
+  RabbitMQ__Port: "5672"
+  RabbitMQ__UserName: "eshop"
+  RabbitMQ__Password: "eshop123"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ordering-api
+  namespace: eshop
+  labels:
+    app: ordering-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ordering-api
+  template:
+    metadata:
+      labels:
+        app: ordering-api
+    spec:
+      containers:
+      - name: ordering-api
+        image: ordering-api:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8080
+        envFrom:
+        - configMapRef:
+            name: ordering-api-config
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ordering-api
+  namespace: eshop
+  labels:
+    app: ordering-api
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+  selector:
+    app: ordering-api

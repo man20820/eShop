@@ -1,0 +1,92 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: webapp-config
+  namespace: eshop
+data:
+  ASPNETCORE_ENVIRONMENT: "Development"
+  ASPNETCORE_URLS: "http://+:8080"
+  # Identity configuration - using HTTPS
+  IdentityUrl: "https://identity.tkjpedia.com"
+  CallBackUrl: "https://webapp.tkjpedia.com"
+  # Service discovery - internal cluster communication (still HTTP)
+  services__catalog-api__http__0: "http://catalog-api:8080"
+  services__basket-api__http__0: "http://basket-api:8080"
+  services__ordering-api__http__0: "http://ordering-api:8080"
+  services__identity-api__http__0: "http://identity-api:8080"
+  # OpenID Connect configuration with HTTPS - FIXED
+  Authentication__Schemes__OpenIdConnect__Authority: "https://identity.tkjpedia.com"
+  Authentication__Schemes__OpenIdConnect__MetadataAddress: "https://identity.tkjpedia.com/.well-known/openid-configuration"
+  Authentication__Schemes__OpenIdConnect__ClientId: "webapp"
+  Authentication__Schemes__OpenIdConnect__ResponseType: "code"
+  Authentication__Schemes__OpenIdConnect__RequireHttpsMetadata: "false"
+  Authentication__Schemes__OpenIdConnect__SaveTokens: "true"
+  Authentication__Schemes__OpenIdConnect__CallbackPath: "/signin-oidc"
+  Authentication__Schemes__OpenIdConnect__SignedOutCallbackPath: "/signout-callback-oidc"
+  # IMPORTANT: Force HTTPS for redirect URIs
+  Authentication__Schemes__OpenIdConnect__RedirectUri: "https://webapp.tkjpedia.com/signin-oidc"
+  Authentication__Schemes__OpenIdConnect__PostLogoutRedirectUri: "https://webapp.tkjpedia.com/signout-callback-oidc"
+  # Force HTTPS scheme for the application
+  ASPNETCORE_HTTPS_PORT: "443"
+  ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+  # Simplified RabbitMQ configuration
+  ConnectionStrings__EventBus: "amqp://eshop:eshop123@rabbitmq:5672"
+  RabbitMQ__HostName: "rabbitmq"
+  RabbitMQ__Port: "5672"
+  RabbitMQ__UserName: "eshop"
+  RabbitMQ__Password: "eshop123"
+  # SSL configuration
+  ASPNETCORE_Kestrel__Certificates__Default__AllowInvalid: "true"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapp
+  namespace: eshop
+  labels:
+    app: webapp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webapp
+  template:
+    metadata:
+      labels:
+        app: webapp
+    spec:
+      containers:
+      - name: webapp
+        image: webapp:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8080
+        envFrom:
+        - configMapRef:
+            name: webapp-config
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "300m"
+          limits:
+            memory: "1Gi"
+            cpu: "600m"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webapp
+  namespace: eshop
+  labels:
+    app: webapp
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+  selector:
+    app: webapp

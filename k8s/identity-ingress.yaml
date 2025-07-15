@@ -1,0 +1,51 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: identity-ingress
+  namespace: eshop
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+    # SSL redirect
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    # Enable CORS for identity endpoints
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://webapp.tkjpedia.com"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization"
+    nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
+    # Forward headers for proper authentication
+    nginx.ingress.kubernetes.io/proxy-set-headers: |
+      X-Forwarded-Host $host
+      X-Forwarded-Proto $scheme
+      X-Original-Host $host
+      X-Forwarded-For $proxy_add_x_forwarded_for
+    # HSTS for security
+    nginx.ingress.kubernetes.io/server-snippet: |
+      add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    # FIX: Increase buffer sizes for OAuth/OIDC responses
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "16k"
+    nginx.ingress.kubernetes.io/proxy-buffers-number: "8"
+    nginx.ingress.kubernetes.io/proxy-busy-buffers-size: "64k"
+    nginx.ingress.kubernetes.io/large-client-header-buffers: "4 16k"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - identity.tkjpedia.com
+    secretName: identity-tls-secret
+  rules:
+  - host: identity.tkjpedia.com
+    http:
+      paths:
+      # Route all paths directly to identity-api
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: identity-api
+            port:
+              number: 8080
