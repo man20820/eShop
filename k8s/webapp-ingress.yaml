@@ -1,0 +1,75 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: eshop-ingress
+  namespace: eshop
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+    # SSL redirect
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    # HSTS for security
+    nginx.ingress.kubernetes.io/server-snippet: |
+      add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    # FIX: Increase buffer sizes for OAuth/OIDC callbacks
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "16k"
+    nginx.ingress.kubernetes.io/proxy-buffers-number: "8"
+    nginx.ingress.kubernetes.io/proxy-busy-buffers-size: "64k"
+    nginx.ingress.kubernetes.io/large-client-header-buffers: "4 16k"
+    # Additional headers for proper authentication
+    nginx.ingress.kubernetes.io/proxy-set-headers: |
+      X-Forwarded-Host $host
+      X-Forwarded-Proto $scheme
+      X-Original-Host $host
+      X-Forwarded-For $proxy_add_x_forwarded_for
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - webapp.tkjpedia.com
+    secretName: webapp-tls-secret
+  rules:
+  - host: webapp.tkjpedia.com
+    http:
+      paths:
+      # Identity API endpoints
+      - path: /identity
+        pathType: Prefix
+        backend:
+          service:
+            name: identity-api
+            port:
+              number: 8080
+      # API endpoints
+      - path: /api/catalog
+        pathType: Prefix
+        backend:
+          service:
+            name: catalog-api
+            port:
+              number: 8080
+      - path: /api/basket
+        pathType: Prefix
+        backend:
+          service:
+            name: basket-api
+            port:
+              number: 8080
+      - path: /api/orders
+        pathType: Prefix
+        backend:
+          service:
+            name: ordering-api
+            port:
+              number: 8080
+      # Main web application (catch-all)
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: webapp
+            port:
+              number: 8080

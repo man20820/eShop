@@ -1,0 +1,90 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: identity-api-config
+  namespace: eshop
+data:
+  ASPNETCORE_ENVIRONMENT: "Development"
+  ASPNETCORE_URLS: "http://+:8080"
+  ConnectionStrings__identitydb: "Host=postgres;Database=identity;Username=eshop;Password=eshop123"
+  # Configure for external domain access with HTTPS
+  ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+  # Use HTTPS for issuer and public origin
+  IdentityServer__IssuerUri: "https://identity.tkjpedia.com"
+  IdentityServer__PublicOrigin: "https://identity.tkjpedia.com"
+  # Client configurations with HTTPS - FIXED
+  WebAppClient: "https://webapp.tkjpedia.com"
+  WebhooksWebClient: "https://webapp.tkjpedia.com/webhooks-client"
+  BasketApiClient: "http://basket-api:8080"
+  OrderingApiClient: "http://ordering-api:8080"
+  WebhooksApiClient: "http://webhooks-api:8080"
+  MauiCallback: "http://localhost:5000"
+  # Client redirect URIs with HTTPS - EXPLICITLY SET
+  WebAppClient__RedirectUri: "https://webapp.tkjpedia.com/signin-oidc"
+  WebAppClient__PostLogoutRedirectUri: "https://webapp.tkjpedia.com/signout-callback-oidc"
+  WebAppClient__AllowedRedirectUris__0: "https://webapp.tkjpedia.com/signin-oidc"
+  WebAppClient__AllowedRedirectUris__1: "http://webapp.tkjpedia.com/signin-oidc"
+  WebAppClient__AllowedPostLogoutRedirectUris__0: "https://webapp.tkjpedia.com/signout-callback-oidc"
+  WebAppClient__AllowedPostLogoutRedirectUris__1: "http://webapp.tkjpedia.com/signout-callback-oidc"
+  # SSL configuration
+  ASPNETCORE_Kestrel__Certificates__Default__AllowInvalid: "true"
+  # Allow HTTP metadata for internal communication
+  RequireHttpsMetadata: "false"
+  # Additional client configuration
+  Clients__webapp__RedirectUris__0: "https://webapp.tkjpedia.com/signin-oidc"
+  Clients__webapp__RedirectUris__1: "http://webapp.tkjpedia.com/signin-oidc"
+  Clients__webapp__PostLogoutRedirectUris__0: "https://webapp.tkjpedia.com/signout-callback-oidc"
+  Clients__webapp__PostLogoutRedirectUris__1: "http://webapp.tkjpedia.com/signout-callback-oidc"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: identity-api
+  namespace: eshop
+  labels:
+    app: identity-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: identity-api
+  template:
+    metadata:
+      labels:
+        app: identity-api
+    spec:
+      containers:
+      - name: identity-api
+        image: identity-api:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8080
+        envFrom:
+        - configMapRef:
+            name: identity-api-config
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: identity-api
+  namespace: eshop
+  labels:
+    app: identity-api
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+  selector:
+    app: identity-api

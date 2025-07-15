@@ -1,0 +1,42 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-init
+  namespace: eshop
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: db-init
+        image: postgres:15
+        command:
+        - /bin/bash
+        - -c
+        - |
+          echo "Waiting for PostgreSQL to be ready..."
+          until pg_isready -h postgres -p 5432 -U eshop; do
+            echo "PostgreSQL is not ready yet..."
+            sleep 2
+          done
+          
+          echo "Creating databases..."
+          
+          # Create identity database
+          PGPASSWORD=eshop123 createdb -h postgres -U eshop -O eshop identity || echo "identity database already exists"
+          
+          # Create catalog database
+          PGPASSWORD=eshop123 createdb -h postgres -U eshop -O eshop catalog || echo "catalog database already exists"
+          
+          # Create ordering database
+          PGPASSWORD=eshop123 createdb -h postgres -U eshop -O eshop ordering || echo "ordering database already exists"
+          
+          # Create webhooks database
+          PGPASSWORD=eshop123 createdb -h postgres -U eshop -O eshop webhooks || echo "webhooks database already exists"
+          
+          echo "Database initialization completed!"
+        env:
+        - name: PGPASSWORD
+          value: "eshop123"
