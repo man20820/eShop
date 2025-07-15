@@ -90,7 +90,8 @@ if (useOllama)
 }
 
 // Wire up the callback urls (self referencing)
-webApp.WithEnvironment("CallBackUrl", webApp.GetEndpoint(launchProfileName));
+var webAppUrl = Environment.GetEnvironmentVariable("WebAppClient") ?? webApp.GetEndpoint(launchProfileName).ToString();
+webApp.WithEnvironment("CallBackUrl", webAppUrl);
 webhooksClient.WithEnvironment("CallBackUrl", webhooksClient.GetEndpoint(launchProfileName));
 
 // Identity has a reference to all of the apps for callback urls, this is a cyclic reference
@@ -98,7 +99,7 @@ identityApi.WithEnvironment("BasketApiClient", basketApi.GetEndpoint("http"))
            .WithEnvironment("OrderingApiClient", orderingApi.GetEndpoint("http"))
            .WithEnvironment("WebhooksApiClient", webHooksApi.GetEndpoint("http"))
            .WithEnvironment("WebhooksWebClient", webhooksClient.GetEndpoint(launchProfileName))
-           .WithEnvironment("WebAppClient", webApp.GetEndpoint(launchProfileName));
+           .WithEnvironment("WebAppClient", webAppUrl);
 
 builder.Build().Run();
 
